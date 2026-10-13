@@ -53,6 +53,19 @@ def _google_api_fallback(text: str, source: str, target: str) -> str:
             continue
         except Exception:
             continue
+
+    # Secondary fallback: MyMemory translator (free, reliable on cloud/datacenter IPs)
+    try:
+        from deep_translator import MyMemoryTranslator
+        src_name = (catalog.get(source) or {}).get("name", "").lower()
+        tgt_name = (catalog.get(target) or {}).get("name", "").lower()
+        if src_name and tgt_name:
+            out = MyMemoryTranslator(source=src_name, target=tgt_name).translate(text)
+            if out and str(out).strip():
+                return str(out).strip()
+    except Exception:
+        pass
+
     if has_429:
         raise TooManyRequests("Google rate limit reached")
     raise TranslationError("Google translation endpoints returned empty result.")
