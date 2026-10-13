@@ -88,12 +88,60 @@ export default function Translate() {
       })
       setResult(r)
     } catch (e) {
+      // Direct client fallback to MyMemory if backend is temporarily rate-limited or sleeping
+      try {
+        const srcCode = source === 'auto' ? (detection?.language.code || 'auto') : source
+        const pair = `${srcCode === 'auto' ? '' : srcCode}|${target}`
+        const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.trim())}&langpair=${pair}&de=lexia@gmail.com`)
+        if (res.ok) {
+          const data = await res.json()
+          const trans = data?.responseData?.translatedText
+          if (trans && typeof trans === 'string' && !trans.startsWith('MYMEMORY WARNING')) {
+            const srcLang = (srcCode !== 'auto' && byCode[srcCode]) ? byCode[srcCode] : (detection?.language || {
+              code: srcCode, name: srcCode.toUpperCase(), native: srcCode.toUpperCase(),
+              family: 'World languages', script: 'Latin', rtl: false, writing_system: 'Alphabet',
+              characters: '', group: 'Other', glyphs: '', unspaced: false,
+            })
+            const tgtLang = byCode[target] || {
+              code: target, name: target.toUpperCase(), native: target.toUpperCase(),
+              family: 'World languages', script: 'Latin', rtl: false, writing_system: 'Alphabet',
+              characters: '', group: 'Other', glyphs: '', unspaced: false,
+            }
+            setResult({
+              id: Math.random().toString(36).slice(2, 10),
+              created_at: new Date().toISOString(),
+              source: { ...srcLang, detected: source === 'auto', confidence: detection?.confidence ?? 1, band: detection?.band ?? 'high' },
+              target: tgtLang,
+              style: s,
+              source_text: text.trim(),
+              translation: trans,
+              provider: 'mymemory',
+              context: { kind: 'machine' },
+              profile: {
+                family: srcLang.family,
+                script: srcLang.script,
+                writing_system: srcLang.writing_system,
+                characters: srcLang.characters,
+                direction: srcLang.rtl ? 'Right to left' : 'Left to right',
+                stats: detection?.stats || { characters: text.trim().length, letters: text.trim().length, words: text.trim().split(/\s+/).length },
+                alternatives: detection?.alternatives || [],
+                method: 'neural translation',
+              },
+              saved: false,
+            })
+            setError(null)
+            return
+          }
+        }
+      } catch {
+        /* client fallback also failed */
+      }
       setResult(null)
       setError((e as Error).message)
     } finally {
       setLoading(false)
     }
-  }, [text, source, target, style, settings.saveHistory])
+  }, [text, source, target, style, settings.saveHistory, detection, byCode])
 
   const swap = () => {
     const from = source === 'auto' ? detectedCode : source

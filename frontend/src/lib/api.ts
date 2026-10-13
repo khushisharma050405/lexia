@@ -55,7 +55,7 @@ export async function api<T>(path: string, opts: { method?: string; body?: unkno
     })
   } catch (e) {
     if ((e as Error).name === 'AbortError') throw e
-    throw new ApiError("Can't reach the LEXIA backend server. Check that the backend is running on port 8000.", 0)
+    throw new ApiError("Can't reach the LEXIA backend server. Please wait a moment while the server wakes up and try again.", 0)
   }
   if (!res.ok) {
     let detail: unknown = null
@@ -68,10 +68,10 @@ export async function api<T>(path: string, opts: { method?: string; body?: unkno
       throw new ApiError(readableDetail(detail), res.status)
     }
     if (res.status === 404) {
-      throw new ApiError('Backend endpoint not found (404). Ensure the FastAPI backend server is running and connected.', 404)
+      throw new ApiError('Backend endpoint not found (404). Ensure the backend is deployed and connected.', 404)
     }
     if (res.status === 502 || res.status === 503 || res.status === 504) {
-      throw new ApiError('Backend server is unreachable. Check if the backend is running on port 8000.', res.status)
+      throw new ApiError('Backend server is temporarily waking up. Please try again in a few seconds.', res.status)
     }
     throw new ApiError(`Request failed (${res.status}).`, res.status)
   }
