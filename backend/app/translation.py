@@ -31,23 +31,30 @@ def is_rate_limit_error(exc: Exception) -> bool:
 
 def _google_api_fallback(text: str, source: str, target: str) -> str:
     """Fallback Google Translate endpoint if deep_translator hits rate limit."""
+    has_429 = False
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
     for client in ("dict-chrome-ex", "gtx"):
         try:
             url = "https://translate.googleapis.com/translate_a/single"
             params = {"client": client, "sl": source, "tl": target, "dt": "t", "q": text}
-            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
             resp = requests.get(url, params=params, headers=headers, timeout=8)
             if resp.status_code == 429:
-                raise TooManyRequests("Google rate limit reached")
+                has_429 = True
+                continue
             if resp.status_code == 200:
                 data = resp.json()
                 translated = "".join(part[0] for part in data[0] if part and part[0])
                 if translated and translated.strip():
                     return translated.strip()
         except TooManyRequests:
-            raise
+            has_429 = True
+            continue
         except Exception:
             continue
+    if has_429:
+        raise TooManyRequests("Google rate limit reached")
     raise TranslationError("Google translation endpoints returned empty result.")
 
 
