@@ -29,8 +29,22 @@ SECRET_KEY = _secret()
 TOKEN_TTL_HOURS = int(os.getenv("TOKEN_TTL_HOURS", "168"))
 MAX_CHARS = 5000  # limit of the Google Translate endpoint used by deep-translator
 
-CORS_ORIGINS = [o.strip() for o in os.getenv(
-    "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o.strip()]
+cors_raw = os.getenv("CORS_ORIGINS", "").strip()
+if cors_raw == "*":
+    CORS_ORIGINS = ["*"]
+elif cors_raw:
+    CORS_ORIGINS = [o.strip() for o in cors_raw.split(",") if o.strip()]
+else:
+    CORS_ORIGINS = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ]
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5-5").strip()

@@ -14,17 +14,31 @@ Landing · Translate · Language Recognition · Translation Result · History ·
 
 ## Quick start
 
-### 1. Backend
+### ⚡ One-command start (Recommended)
+From the root directory:
+```bash
+./run.sh
+```
+Or:
+```bash
+npm run dev
+```
+This automatically starts both the FastAPI backend (`http://127.0.0.1:8000`) and the Vite frontend (`http://localhost:5173`) with live-reload and API proxying configured.
+
+---
+
+### Manual start (Two terminals)
+
+#### 1. Backend
 ```bash
 cd backend
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env               # optional; everything works without editing it
 uvicorn app.main:app --reload --port 8000
 ```
 
-### 2. Frontend (development)
+#### 2. Frontend
 ```bash
 cd frontend
 npm install
@@ -34,7 +48,7 @@ npm run dev                         # http://localhost:5173  (proxies /api to :8
 ### Single-server mode (production-style)
 ```bash
 cd frontend && npm install && npm run build
-cd ../backend && uvicorn app.main:app --port 8000   # serves the app and the API on http://localhost:8000
+cd ../backend && uvicorn app.main:app --port 8000   # serves both the UI and the API on http://localhost:8000
 ```
 
 Requires an internet connection for translation (Google Translate). Detection, the language catalogue,
