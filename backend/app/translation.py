@@ -33,8 +33,26 @@ def _google_api_fallback(text: str, source: str, target: str) -> str:
     """Fallback Google Translate endpoint if deep_translator hits rate limit."""
     has_429 = False
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
     }
+
+    # 1. Google Chrome translation endpoint (high throughput, datacenter/cloud-friendly)
+    try:
+        url = "https://clients5.google.com/translate_a/t"
+        params = {"client": "dict-chrome-ex", "sl": source, "tl": target, "q": text}
+        resp = requests.get(url, params=params, headers=headers, timeout=8)
+        if resp.status_code == 200:
+            data = resp.json()
+            if isinstance(data, list) and data:
+                return str(data[0]).strip()
+            if isinstance(data, str) and data.strip():
+                return data.strip()
+        elif resp.status_code == 429:
+            has_429 = True
+    except Exception:
+        pass
+
+    # 2. Google Translate single API endpoint
     for client in ("dict-chrome-ex", "gtx"):
         try:
             url = "https://translate.googleapis.com/translate_a/single"
@@ -54,12 +72,19 @@ def _google_api_fallback(text: str, source: str, target: str) -> str:
         except Exception:
             continue
 
-    # Secondary fallback: MyMemory translator (free, reliable on cloud/datacenter IPs)
+    # 3. Secondary fallback: MyMemory translator (free, reliable on cloud/datacenter IPs)
     try:
         from deep_translator import MyMemoryTranslator
-        src_name = (catalog.get(source) or {}).get("name", "").lower()
+        from . import detection
+        src_code = source
+        if src_code == "auto":
+            try:
+                src_code = detection.detect(text)["language"]["code"]
+            except Exception:
+                src_code = "auto"
+        src_name = (catalog.get(src_code) or {}).get("name", "").lower() if src_code != "auto" else "auto"
         tgt_name = (catalog.get(target) or {}).get("name", "").lower()
-        if src_name and tgt_name:
+        if tgt_name:
             out = MyMemoryTranslator(source=src_name, target=tgt_name).translate(text)
             if out and str(out).strip():
                 return str(out).strip()
