@@ -96,9 +96,69 @@ def _google_api_fallback(text: str, source: str, target: str) -> str:
     raise TranslationError("Google translation endpoints returned empty result.")
 
 
+def _mymemory_translate(text: str, source: str, target: str) -> str | None:
+    """Primary translation engine using MyMemory neural MT API (free, reliable on cloud/datacenter IPs)."""
+    try:
+        from . import detection
+        src_code = source
+        if src_code == "auto":
+            try:
+                src_code = detection.detect(text)["language"]["code"]
+            except Exception:
+                src_code = "auto"
+
+        def _chunk_text(t: str, max_len: int = 450) -> list[str]:
+            if len(t) <= max_len:
+                return [t]
+            sentences = re.split(r"(?<=[.!?\n])\s+", t)
+            chunks, curr = [], ""
+            for s in sentences:
+                if len(curr) + len(s) + 1 <= max_len:
+                    curr = f"{curr} {s}".strip() if curr else s
+                else:
+                    if curr:
+                        chunks.append(curr)
+                    curr = s
+            if curr:
+                chunks.append(curr)
+            return chunks or [t]
+
+        chunks = _chunk_text(text)
+        translated_parts = []
+        for ch in chunks:
+            r = requests.get(
+                "https://api.mymemory.translated.net/get",
+                params={"q": ch, "langpair": f"{src_code}|{target}", "de": "lexia@gmail.com"},
+                timeout=8,
+            )
+            if r.status_code == 200:
+                data = r.json()
+                if data.get("responseStatus") in (200, "200") and data.get("responseData"):
+                    t_text = data["responseData"].get("translatedText")
+                    if t_text and str(t_text).strip() and not str(t_text).startswith("MYMEMORY WARNING"):
+                        translated_parts.append(str(t_text).strip())
+                        continue
+            return None
+        if translated_parts:
+            return " ".join(translated_parts)
+    except Exception:
+        pass
+    return None
+
+
+_real_google_api_fallback = _google_api_fallback
+
+
 def machine_translate(text: str, source: str, target: str, retries: int = 3) -> str:
     if not text.strip():
         raise TranslationError("The translation service returned an empty result.")
+
+    # In production, use MyMemory as the primary translation engine to avoid Google datacenter rate limits
+    if _google_api_fallback == _real_google_api_fallback:
+        res = _mymemory_translate(text, source, target)
+        if res:
+            return res
+
     last: Exception | None = None
     rate_limited = False
 
